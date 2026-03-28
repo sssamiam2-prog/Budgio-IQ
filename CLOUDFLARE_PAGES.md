@@ -4,15 +4,21 @@ Connect this repo to **Cloudflare Pages** so everyone gets a public URL. Databas
 
 ## 1. Push to GitHub
 
-Create a new empty repository on GitHub, then from this folder:
+Create a new **empty** repository on GitHub (no README, no `.gitignore`).
+
+From the project root in PowerShell:
+
+```powershell
+.\scripts\push-to-github.ps1 https://github.com/YOUR_USER/YOUR_REPO.git
+```
+
+Or manually:
 
 ```bash
 git remote add origin https://github.com/YOUR_USER/YOUR_REPO.git
 git branch -M main
 git push -u origin main
 ```
-
-Replace with your real repo URL.
 
 ## 2. Create the Pages project
 
