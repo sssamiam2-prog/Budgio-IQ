@@ -1,0 +1,16 @@
+# Dependencies & build
+**/node_modules/
+**/dist/
+
+# Editor / local tooling (do not publish)
+.cursor/
+.agents/
+
+# Secrets — never commit
+web/.env
+.env
+.env.*
+!.env.example
+
+**/SupabaseKeys.txt
+kets/
