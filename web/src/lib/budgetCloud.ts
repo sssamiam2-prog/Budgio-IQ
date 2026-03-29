@@ -29,6 +29,7 @@ export type HouseholdRow = {
   monthly_budget_cap: number | null
   bank_link_enabled: boolean
   join_code: string
+  gemini_api_key?: string | null
 }
 
 export async function createHousehold(
@@ -155,6 +156,7 @@ export async function loadHouseholdBundle(householdId: string): Promise<{
   monthlyBudgetCap: number | null
   bankLinkEnabled: boolean
   joinCode: string
+  geminiApiKey: string | null
   people: Person[]
   recurringIncomes: RecurringIncome[]
   oneTimeIncomes: OneTimeIncome[]
@@ -173,12 +175,15 @@ export async function loadHouseholdBundle(householdId: string): Promise<{
   if (h.error) throw h.error
   const hh = h.data as HouseholdRow
   const cap = hh.monthly_budget_cap
+  const rawKey = hh.gemini_api_key
   return {
     householdName: hh.name,
     monthlyBudgetCap:
       cap == null ? null : typeof cap === 'number' ? cap : Number(cap),
     bankLinkEnabled: hh.bank_link_enabled,
     joinCode: hh.join_code,
+    geminiApiKey:
+      rawKey == null || typeof rawKey !== 'string' ? null : rawKey.trim() || null,
     people: (p.data ?? []).map((row: { id: string; name: string }) => ({
       id: row.id,
       name: row.name,
@@ -262,6 +267,7 @@ export async function updateHouseholdMeta(
     name: string
     monthly_budget_cap: number | null
     bank_link_enabled: boolean
+    gemini_api_key: string | null
   }>,
 ): Promise<void> {
   const client = requireClient()

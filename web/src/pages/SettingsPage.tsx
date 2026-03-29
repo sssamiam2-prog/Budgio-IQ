@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { HeaderBar } from '../components/HeaderBar'
 import { NotificationsSection } from '../components/NotificationsSection'
@@ -9,6 +9,84 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useBudgetStore } from '../store/useBudgetStore'
 import { useLocalApiKeyStore } from '../store/useLocalApiKeyStore'
+
+function GoogleAiKeySection({
+  initialValue,
+  isCloud,
+  onSave,
+}: {
+  initialValue: string
+  isCloud: boolean
+  onSave: (trimmed: string | null) => void | Promise<void>
+}) {
+  const [value, setValue] = useState(initialValue)
+  const [savedMsg, setSavedMsg] = useState(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
+  async function save() {
+    try {
+      await onSave(value.trim() || null)
+      setSavedMsg(true)
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(() => setSavedMsg(false), 3200)
+    } catch {
+      setSavedMsg(false)
+    }
+  }
+
+  return (
+    <section className="section">
+      <h2 className="section__title">Google AI (optional)</h2>
+      {isCloud ? (
+        <p className="muted small">
+          Paste a Gemini API key from Google AI Studio for deeper insights on the
+          Insights page. It is saved on your <strong>household</strong> in Supabase so
+          you and other members of this budget see the same key on any device. Anyone
+          in the household can view or change it.
+        </p>
+      ) : (
+        <p className="muted small">
+          Paste a Gemini API key from Google AI Studio for deeper insights. In
+          local-only mode the key stays in this browser only (not Supabase).
+        </p>
+      )}
+      <label className="field">
+        <span>API key</span>
+        <input
+          type="password"
+          autoComplete="off"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void save()
+            }
+          }}
+        />
+      </label>
+      <div className="stack stack--tight">
+        <button type="button" className="btn btn--primary" onClick={() => void save()}>
+          {isCloud ? 'Save API key for household' : 'Save API key on this device'}
+        </button>
+        {savedMsg ? (
+          <p className="muted small" role="status">
+            {isCloud
+              ? 'Saved. All household members can use Insights with this key.'
+              : 'Saved. This browser will use it for Insights until you clear it.'}
+          </p>
+        ) : null}
+      </div>
+    </section>
+  )
+}
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -31,23 +109,33 @@ export function SettingsPage() {
   const joinPartnerHousehold = useBudgetStore((s) => s.joinPartnerHousehold)
   const loadDemo = useBudgetStore((s) => s.loadDemo)
   const resetAll = useBudgetStore((s) => s.resetAll)
+  const geminiApiKey = useBudgetStore((s) => s.geminiApiKey)
+  const setGeminiApiKey = useBudgetStore((s) => s.setGeminiApiKey)
 
   const apiKey = useLocalApiKeyStore((s) => s.googleApiKey)
   const setGoogleApiKey = useLocalApiKeyStore((s) => s.setGoogleApiKey)
 
   const [name, setName] = useState(householdName)
   const [cap, setCap] = useState(monthlyCap != null ? String(monthlyCap) : '')
-  const [key, setKey] = useState(apiKey ?? '')
   const [newPerson, setNewPerson] = useState('')
-  const [partnerCode, setPartnerCode] = useState('')
+  /** `undefined` = show URL prefill from `?join=`; string = user-edited value */
+  const [partnerDraft, setPartnerDraft] = useState<string | undefined>(undefined)
   const [joinErr, setJoinErr] = useState<string | null>(null)
   const [members, setMembers] = useState<HouseholdMemberProfile[]>([])
   const [myDisplayName, setMyDisplayName] = useState('')
 
-  const loadMembers = useCallback(async () => {
-    if (!isCloudConfigured() || !householdId) return
-    try {
-      const rows = await cloud.fetchHouseholdMembers(householdId)
+  const urlPartnerCode = useMemo(() => {
+    const j = searchParams.get('join')
+    return j
+      ? j.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 16)
+      : ''
+  }, [searchParams])
+
+  const partnerCode =
+    partnerDraft !== undefined ? partnerDraft : urlPartnerCode
+
+  const applyMemberRows = useCallback(
+    (rows: HouseholdMemberProfile[]) => {
       setMembers(rows)
       const me = rows.find((m) => m.id === user?.id)
       if (me?.display_name != null) {
@@ -55,27 +143,42 @@ export function SettingsPage() {
       } else if (user?.email) {
         setMyDisplayName(user.email.split('@')[0] ?? '')
       }
+    },
+    [user],
+  )
+
+  const loadMembers = useCallback(async () => {
+    if (!isCloudConfigured() || !householdId) return
+    try {
+      const rows = await cloud.fetchHouseholdMembers(householdId)
+      applyMemberRows(rows)
     } catch {
       setMembers([])
     }
-  }, [householdId, user?.id, user?.email])
+  }, [householdId, applyMemberRows])
 
   useEffect(() => {
-    void loadMembers()
-  }, [loadMembers])
+    let cancelled = false
+    ;(async () => {
+      if (!isCloudConfigured() || !householdId) return
+      try {
+        const rows = await cloud.fetchHouseholdMembers(householdId)
+        if (cancelled) return
+        applyMemberRows(rows)
+      } catch {
+        if (!cancelled) setMembers([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [householdId, applyMemberRows])
 
   useEffect(() => {
     const onChange = () => void loadMembers()
     window.addEventListener('budgio:household-members-changed', onChange)
     return () => window.removeEventListener('budgio:household-members-changed', onChange)
   }, [loadMembers])
-
-  useEffect(() => {
-    const j = searchParams.get('join')
-    if (j) {
-      setPartnerCode(j.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 16))
-    }
-  }, [searchParams])
 
   function inviteInstructions(): string {
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -206,7 +309,7 @@ export function SettingsPage() {
                   placeholder="8-character code"
                   value={partnerCode}
                   onChange={(e) => {
-                    setPartnerCode(e.target.value.toUpperCase())
+                    setPartnerDraft(e.target.value.toUpperCase())
                     setJoinErr(null)
                   }}
                 />
@@ -219,7 +322,7 @@ export function SettingsPage() {
                   void (async () => {
                     try {
                       await joinPartnerHousehold(partnerCode.trim())
-                      setPartnerCode('')
+                      setPartnerDraft('')
                       setJoinErr(null)
                       await loadMembers()
                     } catch (e: unknown) {
@@ -319,23 +422,17 @@ export function SettingsPage() {
           </label>
         </section>
 
-        <section className="section">
-          <h2 className="section__title">Google AI (optional)</h2>
-          <p className="muted small">
-            Paste a Gemini API key from Google AI Studio for deeper insights. This
-            key is kept only in this browser (not sent to Supabase).
-          </p>
-          <label className="field">
-            <span>API key</span>
-            <input
-              type="password"
-              autoComplete="off"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              onBlur={() => setGoogleApiKey(key.trim() || null)}
-            />
-          </label>
-        </section>
+        <GoogleAiKeySection
+          key={`${householdId ?? 'noh'}-${isCloudConfigured() ? geminiApiKey ?? '' : apiKey ?? ''}`}
+          initialValue={
+            isCloudConfigured() ? geminiApiKey ?? '' : apiKey ?? ''
+          }
+          isCloud={isCloudConfigured()}
+          onSave={async (trimmed) => {
+            if (isCloudConfigured()) await setGeminiApiKey(trimmed)
+            else setGoogleApiKey(trimmed)
+          }}
+        />
 
         <section className="section">
           <h2 className="section__title">Bank accounts</h2>

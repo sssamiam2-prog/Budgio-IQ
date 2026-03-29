@@ -12,6 +12,7 @@ create table public.households (
   monthly_budget_cap numeric,
   bank_link_enabled boolean not null default false,
   join_code text not null unique,
+  gemini_api_key text,
   created_at timestamptz not null default now()
 );
 

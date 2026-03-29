@@ -60,7 +60,8 @@ export async function geminiBudgetTips(
   ctx: InsightContext,
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+  // Use current Gemini API model id (1.5-flash was removed from v1beta; see ai.google.dev models)
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
   const payload = {
     recurringIncomes: ctx.recurringIncomes.map((i) => ({
       label: i.label,

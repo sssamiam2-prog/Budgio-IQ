@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+/* global self */
 self.addEventListener('push', (event) => {
   let data = { title: 'Budgio IQ', body: 'Reminder' }
   try {

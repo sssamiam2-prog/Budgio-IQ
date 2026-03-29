@@ -2,6 +2,7 @@ import { type CSSProperties, useMemo, useState } from 'react'
 import { startOfMonth } from 'date-fns'
 import { geminiBudgetTips, localBudgetTips } from '../lib/aiInsights'
 import { formatMoney } from '../lib/format'
+import { isCloudConfigured } from '../lib/cloudMode'
 import { useBudgetStore } from '../store/useBudgetStore'
 import { useLocalApiKeyStore } from '../store/useLocalApiKeyStore'
 import { HeaderBar } from '../components/HeaderBar'
@@ -12,7 +13,9 @@ export function InsightsPage() {
   const expenses = useBudgetStore((s) => s.expenses)
   const bills = useBudgetStore((s) => s.bills)
   const monthlyCap = useBudgetStore((s) => s.monthlyBudgetCap)
-  const apiKey = useLocalApiKeyStore((s) => s.googleApiKey)
+  const geminiApiKeyHousehold = useBudgetStore((s) => s.geminiApiKey)
+  const localApiKey = useLocalApiKeyStore((s) => s.googleApiKey)
+  const apiKey = isCloudConfigured() ? geminiApiKeyHousehold : localApiKey
 
   const [aiText, setAiText] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -39,7 +42,11 @@ export function InsightsPage() {
 
   async function runGemini() {
     if (!apiKey?.trim()) {
-      setAiErr('Add a Google AI API key in Settings first.')
+      setAiErr(
+        isCloudConfigured()
+          ? 'Add a Google AI API key in Settings (saved for your household).'
+          : 'Add a Google AI API key in Settings first.',
+      )
       return
     }
     setAiLoading(true)
@@ -119,8 +126,11 @@ export function InsightsPage() {
             </>
           ) : (
             <p className="muted small">
-              Optional: add a Google AI API key in Settings for richer coaching.
-              Free tips work without it.
+              Optional: add a Google AI API key in Settings (
+              {isCloudConfigured()
+                ? 'shared with your household'
+                : 'stored on this device'}
+              ). Free tips work without it.
             </p>
           )}
         </section>

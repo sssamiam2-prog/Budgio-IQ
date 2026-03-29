@@ -31,6 +31,8 @@ export interface BudgetState {
   bills: Bill[]
   monthlyBudgetCap: number | null
   bankLinkEnabled: boolean
+  /** Cloud: Gemini key for Insights, stored on household row (shared with members). Local-only: always null. */
+  geminiApiKey: string | null
 
   applyRemoteBundle: (
     householdId: string,
@@ -68,6 +70,7 @@ export interface BudgetState {
   setMonthlyBudgetCap: (n: number | null) => Promise<void>
   setHouseholdName: (name: string) => Promise<void>
   setBankLinkEnabled: (v: boolean) => Promise<void>
+  setGeminiApiKey: (k: string | null) => Promise<void>
 
   joinPartnerHousehold: (code: string) => Promise<void>
   loadDemo: () => Promise<void>
@@ -84,6 +87,7 @@ function emptyData() {
     bills: [] as Bill[],
     monthlyBudgetCap: null as number | null,
     bankLinkEnabled: false,
+    geminiApiKey: null as string | null,
   }
 }
 
@@ -119,6 +123,7 @@ function buildStore(
         bills: bundle.bills,
         monthlyBudgetCap: bundle.monthlyBudgetCap,
         bankLinkEnabled: bundle.bankLinkEnabled,
+        geminiApiKey: bundle.geminiApiKey,
         hydration: 'ready',
         syncError: null,
       })
@@ -129,6 +134,7 @@ function buildStore(
         householdId: null,
         joinCode: null,
         ...emptyData(),
+        geminiApiKey: null,
         hydration: 'ready',
         syncError: null,
       })
@@ -319,6 +325,15 @@ function buildStore(
         await cloud.updateHouseholdMeta(h, { bank_link_enabled: v })
     },
 
+    setGeminiApiKey: async (k) => {
+      const trimmed = k?.trim() || null
+      set({ geminiApiKey: trimmed })
+      const h = hid()
+      if (isCloudConfigured() && h) {
+        await cloud.updateHouseholdMeta(h, { gemini_api_key: trimmed })
+      }
+    },
+
     joinPartnerHousehold: async (code) => {
       const id = await cloud.joinHouseholdByCode(code)
       const bundle = await cloud.loadHouseholdBundle(id)
@@ -396,6 +411,7 @@ export const useBudgetStore = isCloudConfigured()
           ...(persisted as object),
           householdId: null,
           joinCode: null,
+          geminiApiKey: null,
           hydration: 'ready' as Hydration,
           syncError: null,
         }),

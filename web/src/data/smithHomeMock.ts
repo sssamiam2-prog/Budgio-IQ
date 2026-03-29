@@ -369,5 +369,6 @@ export function smithHomeLocalDefaults() {
     bills: smithHomeBills(),
     monthlyBudgetCap: 7500,
     bankLinkEnabled: false,
+    geminiApiKey: null as string | null,
   }
 }

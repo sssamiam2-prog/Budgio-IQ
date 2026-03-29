@@ -7,24 +7,33 @@ import { supabase } from '../lib/supabase'
 export function JoinRedirect() {
   const [params] = useSearchParams()
   const code = (params.get('code') ?? '').trim().toUpperCase()
+
+  if (!isCloudConfigured() || !supabase) {
+    return <Navigate to="/" replace />
+  }
+  if (!code) {
+    return <Navigate to="/auth" replace />
+  }
+
+  return <JoinRedirectAfterCode code={code} />
+}
+
+function JoinRedirectAfterCode({ code }: { code: string }) {
   const [target, setTarget] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isCloudConfigured() || !supabase) {
-      setTarget('/')
-      return
-    }
-    if (!code) {
-      setTarget('/auth')
-      return
-    }
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false
+    supabase!.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return
       if (session) {
         setTarget(`/settings?join=${encodeURIComponent(code)}`)
       } else {
         setTarget(`/auth?join=${encodeURIComponent(code)}`)
       }
     })
+    return () => {
+      cancelled = true
+    }
   }, [code])
 
   if (!target) {
