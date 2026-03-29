@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { useHouseholdRealtime } from '../hooks/useHouseholdRealtime'
 import { useBudgetStore } from '../store/useBudgetStore'
+import { AppVersionStamp } from './AppVersionStamp'
 import { BottomNav } from './BottomNav'
 import { CosmicBackground } from './CosmicBackground'
 
@@ -14,6 +15,7 @@ export function AppShell() {
       <div className="app-shell__content">
         <Outlet />
       </div>
+      <AppVersionStamp variant="shell" />
       <BottomNav />
     </div>
   )

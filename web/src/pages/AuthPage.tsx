@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { AppVersionStamp } from '../components/AppVersionStamp'
 import { CosmicBackground } from '../components/CosmicBackground'
+import { supabase } from '../lib/supabase'
 
 export function AuthPage() {
   const navigate = useNavigate()
@@ -181,6 +182,7 @@ export function AuthPage() {
           with a code from Settings after they create their own account.
         </p>
       </div>
+      <AppVersionStamp variant="auth" />
     </div>
   )
 }

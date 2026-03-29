@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
+import { AppVersionStamp } from '../components/AppVersionStamp'
 import { isCloudConfigured } from '../lib/cloudMode'
 import { supabase } from '../lib/supabase'
 
@@ -40,6 +41,7 @@ function JoinRedirectAfterCode({ code }: { code: string }) {
     return (
       <div className="boot-screen">
         <p>Loading…</p>
+        <AppVersionStamp variant="boot" />
       </div>
     )
   }
