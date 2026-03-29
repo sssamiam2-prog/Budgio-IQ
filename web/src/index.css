@@ -116,6 +116,13 @@ body {
   letter-spacing: 0.02em;
 }
 
+.header-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .header-bar__icon-btn {
   background: var(--bg-panel);
   border: 1px solid var(--lime-dim);
@@ -128,6 +135,7 @@ body {
   display: grid;
   place-items: center;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .header-bar__spacer {
@@ -763,24 +771,37 @@ body {
   color: var(--lime);
 }
 
-/* Build identity — check this after deploy to confirm the new bundle */
+/* Build identity — header shows compact; auth/boot keep full label */
 .app-version-stamp {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  z-index: 9;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 2px;
   font-size: 0.62rem;
   line-height: 1.25;
   color: var(--text-muted);
-  text-align: center;
   pointer-events: none;
-  max-width: min(100%, 520px);
-  padding: 0 12px;
+}
+
+.app-version-stamp--header {
+  align-items: flex-end;
+  text-align: right;
+  max-width: 110px;
+  min-width: 0;
+}
+
+.app-version-stamp--header .app-version-stamp__ver {
+  font-size: 0.68rem;
+  color: rgba(124, 240, 103, 0.6);
+  font-weight: 600;
+}
+
+.app-version-stamp--header .app-version-stamp__time {
+  font-size: 0.52rem;
+  opacity: 0.72;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
 }
 
 .app-version-stamp__line {
@@ -809,6 +830,8 @@ body {
   width: 100%;
   max-width: 400px;
   padding: 0 16px;
+  align-items: center;
+  text-align: center;
 }
 
 .app-version-stamp--boot {
@@ -816,4 +839,6 @@ body {
   transform: none;
   margin-top: 20px;
   max-width: 100%;
+  align-items: center;
+  text-align: center;
 }

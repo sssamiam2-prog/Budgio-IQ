@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { AppVersionStamp } from './AppVersionStamp'
 
 type Props = {
   title?: string
@@ -25,9 +26,12 @@ export function HeaderBar({ title, showMenu }: Props) {
         />
         {title ? <span className="header-bar__title">{title}</span> : null}
       </div>
-      <Link to="/settings" className="header-bar__icon-btn" aria-label="Settings">
-        ⚙
-      </Link>
+      <div className="header-bar__actions">
+        <AppVersionStamp variant="header" />
+        <Link to="/settings" className="header-bar__icon-btn" aria-label="Settings">
+          ⚙
+        </Link>
+      </div>
     </header>
   )
 }
