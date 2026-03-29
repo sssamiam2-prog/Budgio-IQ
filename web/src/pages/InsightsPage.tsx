@@ -1,6 +1,10 @@
 import { type CSSProperties, useMemo, useState } from 'react'
 import { startOfMonth } from 'date-fns'
-import { geminiBudgetTips, localBudgetTips } from '../lib/aiInsights'
+import {
+  geminiBudgetQuestion,
+  geminiBudgetTips,
+  localBudgetTips,
+} from '../lib/aiInsights'
 import { formatMoney } from '../lib/format'
 import { isCloudConfigured } from '../lib/cloudMode'
 import { useBudgetStore } from '../store/useBudgetStore'
@@ -21,6 +25,11 @@ export function InsightsPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiErr, setAiErr] = useState<string | null>(null)
 
+  const [questionInput, setQuestionInput] = useState('')
+  const [askAnswer, setAskAnswer] = useState<string | null>(null)
+  const [askLoading, setAskLoading] = useState(false)
+  const [askErr, setAskErr] = useState<string | null>(null)
+
   const monthSpend = useMemo(() => {
     const start = startOfMonth(new Date())
     return expenses
@@ -32,13 +41,18 @@ export function InsightsPage() {
     ? Math.min(100, (monthSpend / monthlyCap) * 100)
     : 0
 
-  const tips = localBudgetTips({
-    recurringIncomes: recurring,
-    oneTimeIncomes: oneTime,
-    expenses,
-    bills,
-    monthlyBudgetCap: monthlyCap ?? undefined,
-  })
+  const insightCtx = useMemo(
+    () => ({
+      recurringIncomes: recurring,
+      oneTimeIncomes: oneTime,
+      expenses,
+      bills,
+      monthlyBudgetCap: monthlyCap ?? undefined,
+    }),
+    [recurring, oneTime, expenses, bills, monthlyCap],
+  )
+
+  const tips = localBudgetTips(insightCtx)
 
   async function runGemini() {
     if (!apiKey?.trim()) {
@@ -52,18 +66,38 @@ export function InsightsPage() {
     setAiLoading(true)
     setAiErr(null)
     try {
-      const text = await geminiBudgetTips(apiKey.trim(), {
-        recurringIncomes: recurring,
-        oneTimeIncomes: oneTime,
-        expenses,
-        bills,
-        monthlyBudgetCap: monthlyCap ?? undefined,
-      })
+      const text = await geminiBudgetTips(apiKey.trim(), insightCtx)
       setAiText(text)
     } catch (e: unknown) {
       setAiErr(e instanceof Error ? e.message : 'Could not reach Gemini.')
     } finally {
       setAiLoading(false)
+    }
+  }
+
+  async function runAsk() {
+    if (!apiKey?.trim()) {
+      setAskErr(
+        isCloudConfigured()
+          ? 'Add a Google AI API key in Settings (saved for your household).'
+          : 'Add a Google AI API key in Settings first.',
+      )
+      return
+    }
+    setAskLoading(true)
+    setAskErr(null)
+    try {
+      const text = await geminiBudgetQuestion(
+        apiKey.trim(),
+        questionInput,
+        insightCtx,
+      )
+      setAskAnswer(text)
+    } catch (e: unknown) {
+      setAskAnswer(null)
+      setAskErr(e instanceof Error ? e.message : 'Could not reach Gemini.')
+    } finally {
+      setAskLoading(false)
     }
   }
 
@@ -123,6 +157,41 @@ export function InsightsPage() {
                   ))}
                 </div>
               ) : null}
+
+              <div className="insights-ask">
+                <h3 className="insights-ask__title">Ask about your budget</h3>
+                <p className="muted small">
+                  Ask a specific question — answers use your current income, expenses,
+                  and bills in Budgio IQ.
+                </p>
+                <label className="field">
+                  <span>Your question</span>
+                  <textarea
+                    className="insights-ask__textarea"
+                    rows={4}
+                    placeholder="e.g. Can we afford a $200 weekend trip this month?"
+                    value={questionInput}
+                    onChange={(e) => setQuestionInput(e.target.value)}
+                    disabled={askLoading}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--block"
+                  onClick={() => void runAsk()}
+                  disabled={askLoading || !questionInput.trim()}
+                >
+                  {askLoading ? 'Thinking…' : 'Get answer'}
+                </button>
+                {askErr ? <p className="error-text">{askErr}</p> : null}
+                {askAnswer ? (
+                  <div className="ai-bubble ai-bubble--accent insights-ask__answer">
+                    {askAnswer.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </>
           ) : (
             <p className="muted small">

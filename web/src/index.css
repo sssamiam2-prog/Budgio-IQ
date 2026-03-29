@@ -608,6 +608,45 @@ body {
   margin-bottom: 0;
 }
 
+.insights-ask {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(124, 240, 103, 0.15);
+}
+
+.insights-ask__title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.insights-ask__textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 240, 103, 0.22);
+  background: rgba(8, 22, 16, 0.88);
+  color: var(--text);
+}
+
+.insights-ask__textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.insights-ask__textarea:disabled {
+  opacity: 0.65;
+}
+
+.insights-ask__answer {
+  margin-top: 12px;
+}
+
 .error-text {
   color: var(--danger);
   font-size: 0.85rem;

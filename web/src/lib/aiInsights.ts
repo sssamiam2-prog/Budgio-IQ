@@ -9,6 +9,40 @@ export interface InsightContext {
   monthlyBudgetCap?: number
 }
 
+const GEMINI_MODEL = 'gemini-2.5-flash'
+const MAX_QUESTION_LEN = 2000
+
+/** JSON snapshot sent to Gemini (expense row limit avoids huge prompts). */
+export function buildBudgetPayload(
+  ctx: InsightContext,
+  expenseLimit = 40,
+): Record<string, unknown> {
+  return {
+    recurringIncomes: ctx.recurringIncomes.map((i) => ({
+      label: i.label,
+      amount: i.amount,
+      frequency: i.frequency,
+    })),
+    oneTimeIncomes: ctx.oneTimeIncomes.map((i) => ({
+      label: i.label,
+      amount: i.amount,
+      date: i.date,
+    })),
+    expenses: ctx.expenses.slice(0, expenseLimit).map((e) => ({
+      label: e.label,
+      amount: e.amount,
+      category: e.category,
+      date: e.date,
+    })),
+    bills: ctx.bills.map((b) => ({
+      label: b.label,
+      amount: b.amount,
+      dueDate: b.dueDate,
+    })),
+    monthlyBudgetCap: ctx.monthlyBudgetCap,
+  }
+}
+
 function sumIncomeApprox(ctx: InsightContext): number {
   const recurring = ctx.recurringIncomes.reduce((s, i) => s + i.amount, 0)
   const oneTime = ctx.oneTimeIncomes.reduce((s, i) => s + i.amount, 0)
@@ -60,32 +94,40 @@ export async function geminiBudgetTips(
   ctx: InsightContext,
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey)
-  // Use current Gemini API model id (1.5-flash was removed from v1beta; see ai.google.dev models)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
-  const payload = {
-    recurringIncomes: ctx.recurringIncomes.map((i) => ({
-      label: i.label,
-      amount: i.amount,
-      frequency: i.frequency,
-    })),
-    oneTimeIncomes: ctx.oneTimeIncomes.map((i) => ({
-      label: i.label,
-      amount: i.amount,
-      date: i.date,
-    })),
-    expenses: ctx.expenses.slice(0, 40).map((e) => ({
-      label: e.label,
-      amount: e.amount,
-      category: e.category,
-    })),
-    bills: ctx.bills.map((b) => ({
-      label: b.label,
-      amount: b.amount,
-      dueDate: b.dueDate,
-    })),
-    monthlyBudgetCap: ctx.monthlyBudgetCap,
-  }
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL })
+  const payload = buildBudgetPayload(ctx, 40)
   const prompt = `You are Budgio IQ, a friendly budgeting coach for couples and households. Given this JSON data, write 3–5 short, actionable bullet paragraphs (plain text, no markdown). Focus on cash flow, bill timing, and one realistic habit. Data:\n${JSON.stringify(payload)}`
+  const res = await model.generateContent(prompt)
+  const text = res.response.text()
+  return text.trim()
+}
+
+/**
+ * Answer a user question using only the supplied budget snapshot.
+ * Uses more expense rows than the tips flow when available.
+ */
+export async function geminiBudgetQuestion(
+  apiKey: string,
+  question: string,
+  ctx: InsightContext,
+): Promise<string> {
+  const q = question.trim()
+  if (!q) {
+    throw new Error('Enter a question first.')
+  }
+  if (q.length > MAX_QUESTION_LEN) {
+    throw new Error(`Keep your question under ${MAX_QUESTION_LEN} characters.`)
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL })
+  const payload = buildBudgetPayload(ctx, 80)
+  const prompt = `You are Budgio IQ, a budgeting assistant for a household. Answer the user's question using ONLY the budget JSON below. If the data does not contain enough information, say what is missing or what they could track. Be concise and practical. Plain text only, no markdown. Round dollar amounts sensibly.
+
+User question: ${JSON.stringify(q)}
+
+Household budget JSON:
+${JSON.stringify(payload)}`
   const res = await model.generateContent(prompt)
   const text = res.response.text()
   return text.trim()
